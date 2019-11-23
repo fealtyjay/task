@@ -286,10 +286,12 @@ public class SingTask {
             String rowId = String.valueOf(rs.getString("row_id"));
             String pdXh = String.valueOf(rs.getString("pd_xh"));
             String czbs = String.valueOf(rs.getString("pd_czbs"));
+            String nd = String.valueOf(rs.getString("nd"));
             JSONObject jsonobj = new JSONObject();
             jsonobj.put("rowId", rowId);
             jsonobj.put("pdXh", pdXh);
             jsonobj.put("czbs", czbs);
+            jsonobj.put("nd",nd);
             String key = rowId+czbs;
             List<JSONObject> temp = null;
             if (map.containsKey(key)) {
@@ -307,6 +309,7 @@ public class SingTask {
         JSONObject params = new JSONObject();
         params.put("procode", temp.get(0).get("pdXh"));
         params.put("status", temp.get(0).get("czbs"));
+        params.put("budgetyear", temp.get(0).get("nd"));
         System.out.println("执行接口调用:" + params.toJSONString());
         LinkedHashMap<String, Object> par = new LinkedHashMap<String, Object>();
         par.put(CTURLConstants.APPCODE, CTURLConstants.APPCODE_VALUE);
