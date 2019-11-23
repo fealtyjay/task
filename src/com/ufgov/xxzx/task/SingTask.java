@@ -13,7 +13,6 @@ import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-
 import org.apache.commons.lang3.StringUtils;
 import org.apache.http.HttpResponse;
 import org.apache.http.NameValuePair;
@@ -24,7 +23,6 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.util.EntityUtils;
-
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
@@ -38,19 +36,11 @@ public class SingTask {
         Connection conn = null;
         try {
             Class.forName(CTURLConstants.ORACLEDRIVER);
-//		String url="jdbc:oracle:thin:@192.168.1.101:1521:orcl";//测试
-            String url = "jdbc:oracle:thin:@10.65.202.79:1521/orcl";//正式
-            System.out.print("数据库地址:" + url);
-//		String user="yjcwcs";
-            String user = "yjcw";
-//		String password="111111";
-            String password = "ufgov1234";
-            conn = DriverManager.getConnection(url, user, password);// 连接数据库
+            conn = DriverManager.getConnection(CTURLConstants.DBURL, CTURLConstants.DBUSER, CTURLConstants.PASSWORD);// 连接数据库
             conn.setAutoCommit(false);
             Map<String, List<JSONObject>> map = query(conn);
             if (map.size() <= 0) {
                 System.out.println("没有要更新的数据:" + System.currentTimeMillis());
-                //			statement.close();
                 conn.close();
                 return;
             }
@@ -84,19 +74,14 @@ public class SingTask {
                     String errmsg = resjson.getString("msg");
                     System.out.println("调用合同回写出错:" + errmsg);
                     throw new Exception("调用合同回写出错:" + errmsg);
-//                    statement.close();
-//                    conn.close();
                 }
             }
             conn.commit();
-//		statement.close();
-//            conn.close();
         } catch (Exception e) {
             System.out.print(e.getMessage());
             if(conn!=null) {
                 try {
                     conn.rollback();
-//                    conn.close();
                 } catch (SQLException e1) {
                     System.out.print(e1.getMessage());
                 }
@@ -104,18 +89,14 @@ public class SingTask {
         } finally {
             if(conn!=null) {
                 try {
-//                    conn.rollback();
                     conn.close();
                 } catch (SQLException e) {
                     System.out.print(e.getMessage());
                 }
             }
         }
-//		
-//		return resmsgs.getString("msg");
 
     }
-
     private static CloseableHttpResponse buildPost(List<JSONObject> temp, String data) throws Exception {
         JSONObject params = new JSONObject();
         params.put("ctno", temp.get(0).get("ctno"));
@@ -172,7 +153,6 @@ public class SingTask {
             List<JSONObject> temp = null;
             if (map.containsKey(key)) {
                 temp = map.get(key);
-//                temp.add(jsonobj);
             } else {
                 temp = new ArrayList<JSONObject>();
             }
@@ -196,6 +176,7 @@ public class SingTask {
         UrlEncodedFormEntity entity = new UrlEncodedFormEntity(paramList, "UTF-8");
         httpPost.setEntity(entity);
         try {
+            System.out.println(entity.toString());
             CloseableHttpResponse response = httpClient.execute(httpPost);
             return response;
         } catch (Exception e) {
@@ -213,7 +194,10 @@ public class SingTask {
                 @Override
                 public void run() {
                     try {
+                        //付款信息回写
                         exeQuery();
+                        //合同删除和审批信息调用
+                        exeDelPass();
                     } catch (Exception e) {
                         System.out.print(e.getMessage());
                     }
@@ -223,6 +207,114 @@ public class SingTask {
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    private static synchronized void exeDelPass() {
+
+        System.out.println("开始执行查询:时间" + System.currentTimeMillis());
+        Connection conn = null;
+        try {
+            Class.forName(CTURLConstants.ORACLEDRIVER);
+            conn = DriverManager.getConnection(CTURLConstants.DBURL, CTURLConstants.DBUSER, CTURLConstants.PASSWORD);
+            conn.setAutoCommit(false);
+            Map<String, List<JSONObject>> map = queryCtDelAndPass(conn);
+            if (map.size() <= 0) {
+                System.out.println("没有要更新的数据:" + System.currentTimeMillis());
+                conn.close();
+                return;
+            }
+            String token = HttpToken.getToken();
+            if (token == null) {
+                token = HttpToken.getToken();
+            }
+            JSONObject json = JSONObject.parseObject(token);
+            String code = (String) json.get("code");
+            String data = "";
+            if (StringUtils.isNotBlank(code)) {
+                if (code.equals("1")) {
+                    data = json.getString("data");
+                } else {
+                    data = json.getString("msg");
+                }
+            }
+            Statement statement = conn.createStatement();
+            for (String key : map.keySet()) {
+                CloseableHttpResponse response = buildDelPassPost(map.get(key), data);
+                System.out.print("原始响应：" + response.getEntity());
+                String res = EntityUtils.toString(response.getEntity(), "UTF-8");
+                System.out.print("解析之后的响应：" + res);
+                JSONObject resjson = JSON.parseObject(res);
+                int returncode = resjson.getIntValue("code");
+                if (returncode == 200) {
+                    String sql = "update pd_xmtb set pd_zt='1' where row_id='" +map.get(key).get(0).getString("rowId")
+                            + "' and pd_czbs='" + map.get(key).get(0).get("czbs") + "' ";
+                    System.out.println("合同更新SQL:" + sql);
+                    statement.executeUpdate(sql);
+                } else {
+                    String errmsg = resjson.getString("msg");
+                    System.out.println("调用合同回写出错:" + errmsg);
+                    throw new Exception("调用合同回写出错:" + errmsg);
+                }
+            }
+            conn.commit();
+        } catch (Exception e) {
+            System.out.print(e.getMessage());
+            if(conn!=null) {
+                try {
+                    conn.rollback();
+                } catch (SQLException e1) {
+                    System.out.print(e1.getMessage());
+                }
+            }
+        } finally {
+            if(conn!=null) {
+                try {
+                    conn.close();
+                } catch (SQLException e) {
+                    System.out.print(e.getMessage());
+                }
+            }
+        }
+
+    }
+
+    private static Map<String, List<JSONObject>> queryCtDelAndPass(Connection conn) throws SQLException{
+        Statement statement = conn.createStatement();
+        ResultSet rs = statement.executeQuery("select * from pd_xmtb where pd_zt='0' for update ");
+        Map<String, List<JSONObject>> map = new HashMap<String, List<JSONObject>>();
+        while (rs != null && rs.next()) {
+            String rowId = String.valueOf(rs.getString("row_id"));
+            String pdXh = String.valueOf(rs.getString("pd_xh"));
+            String czbs = String.valueOf(rs.getString("pd_czbs"));
+            JSONObject jsonobj = new JSONObject();
+            jsonobj.put("rowId", rowId);
+            jsonobj.put("pdXh", pdXh);
+            jsonobj.put("czbs", czbs);
+            String key = rowId+czbs;
+            List<JSONObject> temp = null;
+            if (map.containsKey(key)) {
+                temp = map.get(key);
+            } else {
+                temp = new ArrayList<JSONObject>();
+            }
+            temp.add(jsonobj);
+            map.put(key, temp);
+        }
+        return map;
+    }
+
+    private static CloseableHttpResponse buildDelPassPost(List<JSONObject> temp, String data) throws Exception {
+        JSONObject params = new JSONObject();
+        params.put("procode", temp.get(0).get("pdXh"));
+        params.put("status", temp.get(0).get("czbs"));
+        System.out.println("执行接口调用:" + params.toJSONString());
+        LinkedHashMap<String, Object> par = new LinkedHashMap<String, Object>();
+        par.put(CTURLConstants.APPCODE, CTURLConstants.APPCODE_VALUE);
+        par.put(CTURLConstants.SIGN, data);
+        par.put(CTURLConstants.PARAMS, params.toJSONString());
+        CloseableHttpResponse response = (CloseableHttpResponse) post(par, CTURLConstants.BAISICALURL
+                + CTURLConstants.PUSHPRO);
+        return response;
     }
 
 }
