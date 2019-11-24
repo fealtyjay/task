@@ -15,14 +15,14 @@ public class CTURLConstants {
 	
 	public static final String ORACLEDRIVER="oracle.jdbc.driver.OracleDriver";
 	
-//	/**
-//	 * URLzhengshi
-//	 */
-//	public static final String BAISICALURL ="http://10.65.202.78:9005";
+	/**
+	 * URLzhengshi
+	 */
+	public static final String BAISICALURL ="http://10.65.202.78:9005";
 	/**
 	 * URLceshi
 	 */
-	public static final String BAISICALURL ="http://192.168.1.102:9005";
+//	public static final String BAISICALURL ="http://192.168.1.102:9005";
 	/**
 	 * 查询合同列表
 	 */
@@ -55,19 +55,19 @@ public class CTURLConstants {
 	/**
 	 * 测试
 	 */
-	public  static  final  String   DBURL="jdbc:oracle:thin:@192.168.1.101:1521:orcl";
-	public  static  final  String  DBUSER="yjcwcs";
-
-	public static  final   String  PASSWORD="111111";
+//	public  static  final  String   DBURL="jdbc:oracle:thin:@192.168.1.101:1521:orcl";
+//	public  static  final  String  DBUSER="yjcwcs";
+//
+//	public static  final   String  PASSWORD="111111";
 
 	/**
 	 * 正式
 	 */
-	//	public  static  final  String   DBURL="jdbc:oracle:thin:@10.65.202.79:1521/orcl";
+	public  static  final  String   DBURL="jdbc:oracle:thin:@10.65.202.79:1521/orcl";
 
-//	public  static  final  String  DBUSER="yjcw";
+	public  static  final  String  DBUSER="yjcw";
 
-//	public static  final   String  PASSWORD="ufgov1234";
+	public static  final   String  PASSWORD="ufgov1234";
 
 //
 
