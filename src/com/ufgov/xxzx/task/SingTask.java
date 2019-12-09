@@ -58,34 +58,20 @@ public class SingTask {
                     data = json.getString("msg");
                 }
             }
-            Statement statement = conn.createStatement();
+//            Statement statement = conn.createStatement();
             for (String key : map.keySet()) {
-                CloseableHttpResponse response = buildPost(map.get(key), data);
-                System.out.print("原始响应：" + response.getEntity());
-                String res = EntityUtils.toString(response.getEntity(), "UTF-8");
-                System.out.print("解析之后的响应：" + res);
-                JSONObject resjson = JSON.parseObject(res);
-                int returncode = resjson.getIntValue("code");
-                if (returncode == 1) {
-                    String sql = "update ct_mid set status='1' where ctno='" + map.get(key).get(0).get("ctno") + "' and billno='" + map.get(key).get(0).get("billno") + "' ";
-                    System.out.println("合同更新SQL:" + sql);
-                    statement.executeUpdate(sql);
-                } else {
-                    String errmsg = resjson.getString("msg");
-                    System.out.println("调用合同回写出错:" + errmsg);
-                    throw new Exception("调用合同回写出错:" + errmsg);
-                }
+              executeCtMidOne(conn,map.get(key),data);
             }
-            conn.commit();
+//            conn.commit();
         } catch (Exception e) {
             System.out.print(e.getMessage());
-            if(conn!=null) {
-                try {
-                    conn.rollback();
-                } catch (SQLException e1) {
-                    System.out.print(e1.getMessage());
-                }
-            }
+//            if(conn!=null) {
+//                try {
+//                    conn.rollback();
+//                } catch (SQLException e1) {
+//                    System.out.print(e1.getMessage());
+//                }
+//            }
         } finally {
             if(conn!=null) {
                 try {
@@ -93,6 +79,42 @@ public class SingTask {
                 } catch (SQLException e) {
                     System.out.print(e.getMessage());
                 }
+            }
+        }
+
+    }
+
+    private static void executeCtMidOne(Connection conn,List<JSONObject> temp,String data){
+        CloseableHttpResponse response = null;
+        try {
+            Statement statement = conn.createStatement();
+            statement.executeQuery("select * from ct_mid where status='0' and ctno='" +temp.get(0).get("ctno")
+                    + "' and billno='" + temp.get(0).get("billno") + "' for update ");
+            response = buildPost(temp, data);
+            System.out.println("合同回写原始响应：" + response.getEntity());
+            String res = EntityUtils.toString(response.getEntity(), "UTF-8");
+            System.out.println("合同回写解析之后的响应：" + res);
+            JSONObject resjson = JSON.parseObject(res);
+            int returncode = resjson.getIntValue("code");
+            if (returncode == 1) {
+                String sql = "update ct_mid set status='1' where ctno='" + temp.get(0).get("ctno") + "' and billno='" + temp.get(0).get("billno") + "' ";
+                System.out.println("合同回写更新SQL:" + sql);
+                statement.executeUpdate(sql);
+                conn.commit();
+            } else {
+                String errmsg = resjson.getString("msg");
+                System.out.println("调用合同回写返回值出错:" + errmsg);
+                conn.rollback();
+//                throw new Exception("调用合同回写出错:" + errmsg);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            System.out.println("调用合同回写过程出错:"+e.getMessage());
+            try {
+                conn.rollback();
+            } catch (SQLException e1) {
+                System.out.println("回滚数据库出错:"+e1.getMessage());
+                e1.printStackTrace();
             }
         }
 
@@ -126,8 +148,8 @@ public class SingTask {
 
     private static Map<String, List<JSONObject>> query(Connection conn) throws SQLException {
         Statement statement = conn.createStatement();
-        ResultSet rs = statement.executeQuery("select * from ct_mid where status='0' for update ");
-//		ResultSet rs = statement.executeQuery("select * from ct_mid where status='0' ");
+//        ResultSet rs = statement.executeQuery("select * from ct_mid where status='0' for update ");
+		ResultSet rs = statement.executeQuery("select * from ct_mid where status='0' ");
         Map<String, List<JSONObject>> map = new HashMap<String, List<JSONObject>>();
         while (rs != null && rs.next()) {
             String ctno = String.valueOf(rs.getString("CTNO"));
@@ -219,7 +241,7 @@ public class SingTask {
             conn.setAutoCommit(false);
             Map<String, List<JSONObject>> map = queryCtDelAndPass(conn);
             if (map.size() <= 0) {
-                System.out.println("没有要更新的数据:" + System.currentTimeMillis());
+                System.out.println("项目状态没有要更新的数据:" + System.currentTimeMillis());
                 conn.close();
                 return;
             }
@@ -237,50 +259,72 @@ public class SingTask {
                     data = json.getString("msg");
                 }
             }
-            Statement statement = conn.createStatement();
             for (String key : map.keySet()) {
-                CloseableHttpResponse response = buildDelPassPost(map.get(key), data);
-                System.out.print("原始响应：" + response.getEntity());
-                String res = EntityUtils.toString(response.getEntity(), "UTF-8");
-                System.out.print("解析之后的响应：" + res);
-                JSONObject resjson = JSON.parseObject(res);
-                int returncode = resjson.getIntValue("code");
-                if (returncode == 200) {
-                    String sql = "update pd_xmtb set pd_zt='1' where row_id='" +map.get(key).get(0).getString("rowId")
-                            + "' and pd_czbs='" + map.get(key).get(0).get("czbs") + "' ";
-                    System.out.println("合同更新SQL:" + sql);
-                    statement.executeUpdate(sql);
-                } else {
-                    String errmsg = resjson.getString("msg");
-                    System.out.println("调用合同回写出错:" + errmsg);
-                    throw new Exception("调用合同回写出错:" + errmsg);
-                }
+                exeDelPassOne(conn,map.get(key),data);
             }
-            conn.commit();
+//            conn.commit();
         } catch (Exception e) {
-            System.out.print(e.getMessage());
-            if(conn!=null) {
-                try {
-                    conn.rollback();
-                } catch (SQLException e1) {
-                    System.out.print(e1.getMessage());
-                }
-            }
+            System.out.println("执行项目状态调用出错:"+e.getMessage());
+//            if(conn!=null) {
+//                try {
+//                    conn.rollback();
+//                } catch (SQLException e1) {
+//                    System.out.print(e1.getMessage());
+//                }
+//            }
         } finally {
             if(conn!=null) {
                 try {
                     conn.close();
                 } catch (SQLException e) {
-                    System.out.print(e.getMessage());
+                    System.out.println(e.getMessage());
                 }
             }
         }
 
     }
 
+    private  static  void exeDelPassOne(Connection conn,List<JSONObject> temp, String data){
+        try {
+            Statement statement = conn.createStatement();
+            statement.executeQuery("select * from pd_xmtb where pd_zt='0' and row_id='" +temp.get(0).getString("rowId")
+                            + "' and pd_czbs='" + temp.get(0).get("czbs") + "' for update ");
+            CloseableHttpResponse response = buildDelPassPost(temp, data);
+            System.out.println("项目状态原始响应：" + response.getEntity());
+            String res = EntityUtils.toString(response.getEntity(), "UTF-8");
+            System.out.println("项目状态解析之后的响应：" + res);
+            JSONObject resjson = JSON.parseObject(res);
+            int returncode = resjson.getIntValue("code");
+            if (returncode == 200) {
+                String sql = "update pd_xmtb set pd_zt='1' where row_id='" +temp.get(0).getString("rowId")
+                        + "' and pd_czbs='" + temp.get(0).get("czbs") + "' ";
+                System.out.println("项目状态更新SQL:" + sql);
+                statement.executeUpdate(sql);
+                conn.commit();
+            } else {
+                String errmsg = resjson.getString("msg");
+                System.out.println("项目状态回写出错:" + errmsg);
+                conn.rollback();
+//                throw new Exception("项目库状态回写出错:" + errmsg);
+            }
+        } catch (Exception e) {
+            System.out.println("项目状态请求出错"+e.getMessage());
+            e.printStackTrace();
+            try {
+                conn.rollback();
+            } catch (SQLException e1) {
+                System.out.println("项目状态回滚数据库出错"+e1.getMessage());
+                e1.printStackTrace();
+
+            }
+        }
+    }
+
+
+
     private static Map<String, List<JSONObject>> queryCtDelAndPass(Connection conn) throws SQLException{
         Statement statement = conn.createStatement();
-        ResultSet rs = statement.executeQuery("select * from pd_xmtb where pd_zt='0' for update ");
+        ResultSet rs = statement.executeQuery("select * from pd_xmtb where pd_zt='0' ");
         Map<String, List<JSONObject>> map = new HashMap<String, List<JSONObject>>();
         while (rs != null && rs.next()) {
             String rowId = String.valueOf(rs.getString("row_id"));
