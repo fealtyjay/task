@@ -67,7 +67,7 @@ public class CTURLConstants {
 
 	public  static  final  String  DBUSER="yjcw";
 
-	public static  final   String  PASSWORD="ufgov1234";
+	public static  final   String  PASSWORD="ufgov@1234";
 
 //
 
