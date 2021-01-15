@@ -331,11 +331,13 @@ public class SingTask {
             String pdXh = String.valueOf(rs.getString("pd_xh"));
             String czbs = String.valueOf(rs.getString("pd_czbs"));
             String nd = String.valueOf(rs.getString("nd"));
+            String type = String.valueOf(rs.getString("type"));
             JSONObject jsonobj = new JSONObject();
             jsonobj.put("rowId", rowId);
             jsonobj.put("pdXh", pdXh);
             jsonobj.put("czbs", czbs);
             jsonobj.put("nd",nd);
+            jsonobj.put("type",type);
             String key = rowId+czbs;
             List<JSONObject> temp = null;
             if (map.containsKey(key)) {
@@ -354,7 +356,9 @@ public class SingTask {
         params.put("procode", temp.get(0).get("pdXh"));
         params.put("status", temp.get(0).get("czbs"));
         params.put("budgetyear", temp.get(0).get("nd"));
-        System.out.println("执行接口调用:" + params.toJSONString());
+        params.put("cncert",temp.get(0).get("type"));
+        //增加中心和分中心判断 1国家中心，2分中心 参数名称 cncert
+        System.out.println("执行接口调用参数:" + params.toJSONString());
         LinkedHashMap<String, Object> par = new LinkedHashMap<String, Object>();
         par.put(CTURLConstants.APPCODE, CTURLConstants.APPCODE_VALUE);
         par.put(CTURLConstants.SIGN, data);
